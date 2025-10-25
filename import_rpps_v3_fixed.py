@@ -447,8 +447,9 @@ class OracleLoader:
                 buffer_pros_insert = []
                 for p in unique_pros:
                     if p[0] in existing_ids:
-                        # Format pour UPDATE: nom, prenom, ..., id
-                        buffer_pros_update.append(p[1:] + [p[0]])
+                        # Format pour UPDATE: nom, prenom, nom_exercice, code_prof, lib_prof, code_cat, statut, id
+                        # On exclut p[7] et p[8] (code_savoir_faire et libelle_savoir_faire qui sont NULL)
+                        buffer_pros_update.append([p[1], p[2], p[3], p[4], p[5], p[6], p[9], p[0]])
                     else:
                         # Format pour INSERT: id, nom, prenom, ...
                         buffer_pros_insert.append(p)
@@ -460,9 +461,9 @@ class OracleLoader:
                         SET nom = :1, prenom = :2, nom_exercice = :3,
                             code_profession = :4, libelle_profession = :5,
                             code_categorie_profession = :6,
-                            statut_enregistrement = :9,
+                            statut_enregistrement = :7,
                             date_derniere_maj = SYSDATE
-                        WHERE id_professionnel = :10
+                        WHERE id_professionnel = :8
                     """, buffer_pros_update)
                     logger.debug(f"  ✓ {len(buffer_pros_update):,} professionnels mis à jour")
 

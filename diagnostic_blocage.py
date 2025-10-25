@@ -38,14 +38,14 @@ def test_merge_performance():
     # Test 1: Vérifier les index
     print("\n1️⃣  VÉRIFICATION DES INDEX sur professionnels...")
     cursor.execute("""
-        SELECT index_name, column_name, index_type
-        FROM user_ind_columns
-        WHERE table_name = 'PROFESSIONNELS'
-        ORDER BY index_name, column_position
+        SELECT ic.index_name, ic.column_name
+        FROM user_ind_columns ic
+        WHERE ic.table_name = 'PROFESSIONNELS'
+        ORDER BY ic.index_name, ic.column_position
     """)
     indexes = cursor.fetchall()
     if indexes:
-        for idx_name, col_name, idx_type in indexes:
+        for idx_name, col_name in indexes:
             print(f"   ✅ Index: {idx_name} sur {col_name}")
     else:
         print("   ❌ AUCUN INDEX TROUVÉ ! C'est probablement ça le problème !")

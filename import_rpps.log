@@ -1,0 +1,135 @@
+2025-10-25 03:32:52,400 - INFO - 📄 Fichier source : PS_LibreAcces_Personne_activite_202509230829.txt (0.73 Go)
+2025-10-25 03:32:52,401 - INFO - 🔌 Connexion à Oracle...
+2025-10-25 03:32:55,103 - INFO - ✓ Connexion réussie
+2025-10-25 03:32:55,103 - INFO - 🧹 Nettoyage des tables (TRUNCATE)...
+2025-10-25 03:32:55,585 - INFO -   ✓ Table 'contacts' vidée
+2025-10-25 03:32:55,994 - INFO -   ✓ Table 'adresses' vidée
+2025-10-25 03:32:56,198 - INFO -   ✓ Table 'activites' vidée
+2025-10-25 03:32:56,407 - INFO -   ✓ Table 'structures' vidée
+2025-10-25 03:32:56,588 - INFO -   ✓ Table 'professionnels' vidée
+2025-10-25 03:32:56,663 - INFO - 🔧 Vérification de l'architecture...
+2025-10-25 03:32:56,749 - INFO -   ✓ Colonne 'identifiant_technique' existe
+2025-10-25 03:32:56,750 - INFO - 📝 Enregistrement du log d'import...
+2025-10-25 03:32:57,023 - INFO -   ✓ Log ID: 30
+2025-10-25 03:32:57,024 - INFO - 🚀 Démarrage de l'import...
+2025-10-25 03:32:57,025 - INFO - ✓ Colonnes mappées avec succès
+
+2025-10-25 03:33:09,191 - INFO -   5,000 lignes | 3,505 activités | 0 perdues | 411 l/s
+2025-10-25 03:33:23,313 - INFO -   10,000 lignes | 6,741 activités | 0 perdues | 380 l/s
+2025-10-25 03:33:38,677 - INFO -   15,000 lignes | 10,567 activités | 0 perdues | 360 l/s
+2025-10-25 03:33:51,883 - INFO -   20,000 lignes | 13,683 activités | 0 perdues | 365 l/s
+2025-10-25 03:34:04,708 - INFO -   25,000 lignes | 16,741 activités | 0 perdues | 369 l/s
+2025-10-25 03:34:16,555 - INFO -   30,000 lignes | 19,442 activités | 0 perdues | 377 l/s
+2025-10-25 03:34:30,073 - INFO -   35,000 lignes | 22,376 activités | 0 perdues | 376 l/s
+2025-10-25 03:34:47,717 - INFO -   40,000 lignes | 25,814 activités | 0 perdues | 361 l/s
+2025-10-25 03:35:07,688 - INFO -   45,000 lignes | 29,566 activités | 0 perdues | 344 l/s
+2025-10-25 03:35:28,580 - INFO -   50,000 lignes | 33,783 activités | 0 perdues | 330 l/s
+2025-10-25 03:35:50,389 - INFO -   55,000 lignes | 37,593 activités | 0 perdues | 317 l/s
+2025-10-25 03:36:16,194 - INFO -   60,000 lignes | 41,991 activités | 0 perdues | 301 l/s
+2025-10-25 03:36:27,438 - INFO -   65,000 lignes | 43,845 activités | 0 perdues | 309 l/s
+2025-10-25 03:36:40,353 - INFO -   70,000 lignes | 45,715 activités | 0 perdues | 313 l/s
+2025-10-25 03:36:56,675 - INFO -   75,000 lignes | 49,147 activités | 0 perdues | 313 l/s
+2025-10-25 03:37:17,839 - INFO -   80,000 lignes | 52,618 activités | 0 perdues | 307 l/s
+2025-10-25 03:37:32,884 - INFO -   85,000 lignes | 56,030 activités | 0 perdues | 308 l/s
+2025-10-25 03:37:46,306 - INFO -   90,000 lignes | 59,152 activités | 0 perdues | 311 l/s
+2025-10-25 03:37:57,344 - INFO -   95,000 lignes | 60,254 activités | 0 perdues | 316 l/s
+2025-10-25 03:38:07,785 - INFO -   100,000 lignes | 61,479 activités | 0 perdues | 322 l/s
+2025-10-25 03:38:19,871 - INFO -   105,000 lignes | 62,941 activités | 0 perdues | 325 l/s
+2025-10-25 03:38:32,150 - INFO -   110,000 lignes | 64,282 activités | 0 perdues | 328 l/s
+2025-10-25 03:38:42,590 - INFO -   115,000 lignes | 65,444 activités | 0 perdues | 333 l/s
+2025-10-25 03:38:52,015 - INFO -   120,000 lignes | 66,322 activités | 0 perdues | 338 l/s
+2025-10-25 03:39:00,235 - INFO -   125,000 lignes | 67,045 activités | 0 perdues | 344 l/s
+2025-10-25 03:39:18,870 - INFO -   130,000 lignes | 69,537 activités | 0 perdues | 340 l/s
+2025-10-25 03:39:55,316 - INFO -   135,000 lignes | 74,099 activités | 0 perdues | 323 l/s
+2025-10-25 03:40:27,671 - INFO -   140,000 lignes | 78,620 activités | 0 perdues | 311 l/s
+2025-10-25 03:41:00,031 - INFO -   145,000 lignes | 83,024 activités | 0 perdues | 300 l/s
+2025-10-25 03:41:34,034 - INFO -   150,000 lignes | 87,419 activités | 0 perdues | 290 l/s
+2025-10-25 03:42:01,479 - INFO -   155,000 lignes | 91,336 activités | 0 perdues | 285 l/s
+2025-10-25 03:42:30,759 - INFO -   160,000 lignes | 95,127 activités | 0 perdues | 279 l/s
+2025-10-25 03:42:57,596 - INFO -   165,000 lignes | 98,306 activités | 0 perdues | 275 l/s
+2025-10-25 03:43:06,793 - INFO -   170,000 lignes | 98,857 activités | 0 perdues | 279 l/s
+2025-10-25 03:43:26,172 - INFO -   175,000 lignes | 101,207 activités | 0 perdues | 278 l/s
+2025-10-25 03:43:48,559 - INFO -   180,000 lignes | 104,126 activités | 0 perdues | 276 l/s
+2025-10-25 03:44:11,719 - INFO -   185,000 lignes | 106,972 activités | 0 perdues | 274 l/s
+2025-10-25 03:44:33,235 - INFO -   190,000 lignes | 109,967 activités | 0 perdues | 273 l/s
+2025-10-25 03:44:55,025 - INFO -   195,000 lignes | 112,841 activités | 0 perdues | 272 l/s
+2025-10-25 03:45:17,554 - INFO -   200,000 lignes | 115,769 activités | 0 perdues | 270 l/s
+2025-10-25 03:45:36,520 - INFO -   205,000 lignes | 117,986 activités | 0 perdues | 270 l/s
+2025-10-25 03:45:58,087 - INFO -   210,000 lignes | 120,478 activités | 0 perdues | 269 l/s
+2025-10-25 03:46:19,322 - INFO -   215,000 lignes | 122,935 activités | 0 perdues | 268 l/s
+2025-10-25 03:46:38,161 - INFO -   220,000 lignes | 124,992 activités | 0 perdues | 268 l/s
+2025-10-25 03:47:02,524 - INFO -   225,000 lignes | 128,022 activités | 0 perdues | 266 l/s
+2025-10-25 03:47:34,084 - INFO -   230,000 lignes | 131,461 activités | 0 perdues | 262 l/s
+2025-10-25 03:47:55,162 - INFO -   235,000 lignes | 133,990 activités | 0 perdues | 262 l/s
+2025-10-25 03:48:22,002 - INFO -   240,000 lignes | 137,410 activités | 0 perdues | 259 l/s
+2025-10-25 03:48:53,317 - INFO -   245,000 lignes | 140,097 activités | 0 perdues | 256 l/s
+2025-10-25 03:49:25,077 - INFO -   250,000 lignes | 143,665 activités | 0 perdues | 253 l/s
+2025-10-25 03:49:54,757 - INFO -   255,000 lignes | 146,892 activités | 0 perdues | 251 l/s
+2025-10-25 03:50:16,272 - INFO -   260,000 lignes | 149,162 activités | 0 perdues | 250 l/s
+2025-10-25 03:50:45,357 - INFO -   265,000 lignes | 152,300 activités | 0 perdues | 248 l/s
+2025-10-25 03:51:09,512 - INFO -   270,000 lignes | 154,828 activités | 0 perdues | 247 l/s
+2025-10-25 03:51:36,510 - INFO -   275,000 lignes | 157,582 activités | 0 perdues | 246 l/s
+2025-10-25 03:52:11,143 - INFO -   280,000 lignes | 161,101 activités | 0 perdues | 243 l/s
+2025-10-25 03:52:46,789 - INFO -   285,000 lignes | 164,581 activités | 0 perdues | 240 l/s
+2025-10-25 03:53:22,825 - INFO -   290,000 lignes | 168,155 activités | 0 perdues | 237 l/s
+2025-10-25 03:53:55,272 - INFO -   295,000 lignes | 171,184 activités | 0 perdues | 234 l/s
+2025-10-25 03:54:21,584 - INFO -   300,000 lignes | 173,959 activités | 0 perdues | 234 l/s
+2025-10-25 03:54:55,780 - INFO -   305,000 lignes | 176,754 activités | 0 perdues | 231 l/s
+2025-10-25 03:55:34,101 - INFO -   310,000 lignes | 180,021 activités | 0 perdues | 228 l/s
+2025-10-25 03:56:15,854 - INFO -   315,000 lignes | 183,459 activités | 0 perdues | 225 l/s
+2025-10-25 03:56:59,697 - INFO -   320,000 lignes | 187,530 activités | 0 perdues | 222 l/s
+2025-10-25 03:57:51,097 - INFO -   325,000 lignes | 191,456 activités | 0 perdues | 218 l/s
+2025-10-25 03:58:48,849 - INFO -   330,000 lignes | 195,461 activités | 0 perdues | 213 l/s
+2025-10-25 06:19:56,690 - ERROR - Fichier source non trouvé : PS_LibreAcces_Personne_activite_202509230829.txt
+2025-10-25 06:20:32,229 - INFO - 📄 Fichier source : PS_LibreAcces_Personne_activite_202509230829.txt (0.73 Go)
+2025-10-25 06:20:32,229 - INFO - 🔌 Connexion à Oracle...
+2025-10-25 06:20:39,026 - INFO - ✓ Connexion réussie
+2025-10-25 06:20:39,027 - INFO - 🧹 Nettoyage des tables (TRUNCATE)...
+2025-10-25 06:20:39,274 - INFO -   ✓ Table 'contacts' vidée
+2025-10-25 06:20:39,659 - INFO -   ✓ Table 'adresses' vidée
+2025-10-25 06:20:40,068 - INFO -   ✓ Table 'activites' vidée
+2025-10-25 06:20:40,273 - INFO -   ✓ Table 'structures' vidée
+2025-10-25 06:20:40,432 - WARNING -   ⚠ Erreur TRUNCATE professionnels: ORA-00942: table or view does not exist
+2025-10-25 06:20:40,507 - INFO - 🔧 Vérification de l'architecture...
+2025-10-25 06:20:40,591 - INFO -   ✓ Colonne 'identifiant_technique' existe
+2025-10-25 06:20:40,591 - INFO - 📝 Enregistrement du log d'import...
+2025-10-25 06:20:40,888 - INFO -   ✓ Log ID: 31
+2025-10-25 06:20:40,889 - INFO - 🚀 Démarrage de l'import...
+2025-10-25 06:20:40,890 - INFO - ✓ Colonnes mappées avec succès
+
+2025-10-25 06:20:43,318 - ERROR - ERREUR FATALE: ORA-00942: table or view does not exist
+2025-10-25 06:24:23,312 - INFO - 📄 Fichier source : PS_LibreAcces_Personne_activite_202509230829.txt (0.73 Go)
+2025-10-25 06:24:23,313 - INFO - 🔌 Connexion à Oracle...
+2025-10-25 06:24:24,942 - INFO - ✓ Connexion réussie
+2025-10-25 06:24:24,943 - INFO - 🧹 Nettoyage des tables (TRUNCATE)...
+2025-10-25 06:24:25,021 - INFO -   ✓ Table 'contacts' vidée
+2025-10-25 06:24:25,101 - INFO -   ✓ Table 'adresses' vidée
+2025-10-25 06:24:25,181 - INFO -   ✓ Table 'activites' vidée
+2025-10-25 06:24:25,261 - INFO -   ✓ Table 'structures' vidée
+2025-10-25 06:24:25,421 - WARNING -   ⚠ Erreur TRUNCATE professionnels: ORA-00942: table or view does not exist
+2025-10-25 06:24:25,501 - INFO - 🔧 Vérification de l'architecture...
+2025-10-25 06:24:25,585 - INFO -   ✓ Colonne 'identifiant_technique' existe
+2025-10-25 06:24:25,586 - INFO - 📝 Enregistrement du log d'import...
+2025-10-25 06:24:25,861 - INFO -   ✓ Log ID: 32
+2025-10-25 06:24:25,862 - INFO - 🚀 Démarrage de l'import...
+2025-10-25 06:24:25,863 - INFO - ✓ Colonnes mappées avec succès
+
+2025-10-25 06:24:26,738 - ERROR - ERREUR FATALE: ORA-00942: table or view does not exist
+2025-10-25 17:20:14,298 - INFO - 📄 Fichier source : PS_LibreAcces_Personne_activite_202509230829.txt (0.73 Go)
+2025-10-25 17:20:14,328 - INFO - 🔌 Connexion à Oracle...
+2025-10-25 17:20:16,362 - INFO - ✓ Connexion réussie
+2025-10-25 17:20:16,363 - INFO - 🧹 Nettoyage des tables (TRUNCATE)...
+2025-10-25 17:20:16,438 - INFO -   ✓ Table 'contacts' vidée
+2025-10-25 17:20:16,514 - INFO -   ✓ Table 'adresses' vidée
+2025-10-25 17:20:16,594 - INFO -   ✓ Table 'activites' vidée
+2025-10-25 17:20:16,674 - INFO -   ✓ Table 'structures' vidée
+2025-10-25 17:20:17,158 - INFO -   ✓ Table 'professionnels' vidée
+2025-10-25 17:20:17,275 - INFO - 🔧 Vérification de l'architecture...
+2025-10-25 17:20:17,515 - INFO -   ➕ Ajout colonne 'identifiant_technique' à 'structures'...
+2025-10-25 17:20:17,753 - INFO -   ✓ Colonne ajoutée
+2025-10-25 17:20:17,753 - INFO - 📝 Enregistrement du log d'import...
+2025-10-25 17:20:18,486 - INFO -   ✓ Log ID: 1
+2025-10-25 17:20:18,487 - INFO - 🚀 Démarrage de l'import...
+2025-10-25 17:20:18,535 - INFO - ✓ Colonnes mappées avec succès
+
+2025-10-25 17:20:21,190 - ERROR - ERREUR FATALE: ORA-00904: "CODE_CATEGORIE_PROFESSION": invalid identifier

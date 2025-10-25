@@ -1,0 +1,93 @@
+# =============================================
+# CONFIGURATION PROJET SANTÉ - EXTRACTEUR RPPS
+# =============================================
+
+# Connexion Oracle Cloud
+database:
+  user: "${DB_USER}"
+  password: "${DB_PASSWORD}"
+  dsn: "${DB_DSN}"
+  wallet_path: "${WALLET_PATH}"
+  encoding: "UTF-8"
+  
+# Paramètres d'import
+import:
+  batch_size: 1000                    # Nombre de lignes par commit
+  max_errors: 100                     # Erreurs max avant arrêt
+  log_level: "INFO"                   # DEBUG, INFO, WARNING, ERROR
+  validate_data: true                 # Validation stricte des données
+  calculate_hash: true                # Calcul hash pour détection changements
+  
+# Source de données RPPS
+rpps:
+  url: "https://annuaire.sante.fr/web/site-pro/extractions-publiques"
+  encoding: "UTF-8"
+  delimiter: "|"
+  expected_columns: 57
+  skip_header: true
+  
+# Chemins fichiers
+paths:
+  data_dir: "./data"
+  logs_dir: "./logs"
+  temp_dir: "./data/temp"
+  mapping_file: "./config/mapping_rpps.yaml"
+  
+# Professions cibles (codes RPPS)
+professions_cibles:
+  medecins:
+    - "10"  # Médecin
+  paramedicaux:
+    - "50"  # Sage-Femme
+    - "60"  # Infirmier
+    - "70"  # Masseur-Kinésithérapeute
+    - "80"  # Pédicure-Podologue
+    - "91"  # Ergothérapeute
+    - "94"  # Orthophoniste
+  pharmaciens:
+    - "21"  # Pharmacien
+    
+# Modes d'exercice prioritaires
+modes_exercice_cibles:
+  - "Lib,indép,artis,com"  # Libéral (priorité haute)
+  - "Salarié"              # Salarié (priorité basse)
+  
+# Régions géographiques (codes département)
+regions_prioritaires:
+  ile_de_france: ["75", "77", "78", "91", "92", "93", "94", "95"]
+  sud_est: ["13", "06", "83", "84"]
+  sud_ouest: ["31", "33", "34"]
+  
+# Exclusions géographiques
+exclusions_geo:
+  dom_tom: ["97", "98"]      # DOM-TOM
+  corse: ["20"]              # Corse (optionnel)
+  
+# Enrichissement (pour étapes futures)
+enrichissement:
+  sources_activees:
+    - "SIRENE"
+    - "PAGES_JAUNES"
+    # - "DOCTOLIB"
+    # - "LINKEDIN"
+  timeout_seconds: 30
+  retry_attempts: 3
+  
+# Performance et monitoring
+performance:
+  profiling_enabled: false
+  stats_interval: 10000      # Affiche stats tous les X enregistrements
+  memory_limit_mb: 2048      # Limite mémoire (arrêt si dépassé)
+  
+# Logs
+logging:
+  file_pattern: "extracteur_%Y%m%d_%H%M%S.log"
+  max_size_mb: 100
+  rotation_count: 10
+  console_output: true
+  
+# Notification (pour automatisation future)
+notifications:
+  email_enabled: false
+  email_recipients: []
+  webhook_url: null

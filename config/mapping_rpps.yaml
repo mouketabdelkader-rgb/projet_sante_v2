@@ -1,0 +1,254 @@
+# =============================================
+# MAPPING COLONNES RPPS → TABLES ORACLE
+# Fichier PS_LibreAcces_Personne_activite_YYYYMMDDXXXX.txt
+# 57 colonnes séparées par '|'
+# =============================================
+
+# IMPORTANT : Les indices commencent à 0
+# Format : index: nom_colonne_rpps
+
+colonnes_rpps:
+  # --- IDENTITÉ PROFESSIONNEL ---
+  0: "Identifiant PP"
+  1: "Code civilité"
+  2: "Libellé civilité"
+  3: "Code civilité d'exercice"
+  4: "Libellé civilité d'exercice"
+  5: "Nom de famille"
+  6: "Prénom"
+  7: "Nom d'exercice"
+  8: "Prénom d'exercice"
+  
+  # --- PROFESSION ---
+  9: "Code profession"
+  10: "Libellé profession"
+  11: "Code catégorie professionnelle"
+  12: "Libellé catégorie professionnelle"
+  13: "Code type savoir-faire"
+  14: "Libellé type savoir-faire"
+  15: "Code savoir-faire"
+  16: "Libellé savoir-faire"
+  
+  # --- DONNÉES PROFESSIONNELLES ---
+  17: "Code mode exercice"
+  18: "Libellé mode exercice"
+  19: "Numéro SIRET site"
+  20: "Numéro SIREN site"
+  21: "Numéro FINESS site"
+  22: "Numéro FINESS établissement juridique"
+  23: "Identifiant technique de la structure"
+  24: "Raison sociale site"
+  25: "Enseigne commerciale site"
+  26: "Complément destinataire (coord. structure)"
+  27: "Complément point géographique (coord. structure)"
+  
+  # --- ADRESSE STRUCTURE ---
+  28: "Numéro Voie (coord. structure)"
+  29: "Indice répétition voie (coord. structure)"
+  30: "Code type de voie (coord. structure)"
+  31: "Libellé type de voie (coord. structure)"
+  32: "Libellé Voie (coord. structure)"
+  33: "Mention distribution (coord. structure)"
+  34: "Bureau cedex (coord. structure)"
+  35: "Code postal (coord. structure)"
+  36: "Code commune (coord. structure)"
+  37: "Libellé commune (coord. structure)"
+  38: "Code pays (coord. structure)"
+  39: "Libellé pays (coord. structure)"
+  
+  # --- COORDONNÉES ---
+  40: "Téléphone (coord. structure)"
+  41: "Téléphone 2 (coord. structure)"
+  42: "Télécopie (coord. structure)"
+  43: "Adresse e-mail (coord. structure)"
+  44: "Code Département (structure)"
+  45: "Libellé Département (structure)"
+  46: "Ancien identifiant de la structure"
+  47: "Autorité d'enregistrement"
+  
+  # --- DATES ---
+  48: "Date d'autorisation"
+  49: "Date de début d'activité"
+  50: "Date de fin d'activité"
+  51: "Date de première autorisation"
+  
+  # --- MÉTADONNÉES ---
+  52: "Code secteur d'activité"
+  53: "Libellé secteur d'activité"
+  54: "Code section tableau pharmaciens"
+  55: "Libellé section tableau pharmaciens"
+  56: "Type d'identifiant PP"
+
+# =============================================
+# MAPPING VERS TABLES ORACLE
+# =============================================
+
+# Table PROFESSIONNELS
+mapping_professionnels:
+  id_professionnel: 0          # Identifiant PP
+  nom: 7                        # Nom d'exercice
+  prenom: 8                     # Prénom d'exercice
+  nom_exercice: 7               # Nom d'exercice (même que nom)
+  civilite: 3                   # Code civilité d'exercice
+  code_profession: 9            # Code profession
+  libelle_profession: 10        # Libellé profession
+  categorie_profession: 12      # Libellé catégorie professionnelle
+  statut_enregistrement: "Actif"  # Valeur par défaut
+  source_data: "RPPS"           # Valeur par défaut
+  
+# Table ACTIVITES
+mapping_activites:
+  id_professionnel: 0           # Identifiant PP (FK)
+  code_savoir_faire: 15         # Code savoir-faire
+  libelle_savoir_faire: 16      # Libellé savoir-faire
+  mode_exercice: 18             # Libellé mode exercice
+  secteur_activite: 53          # Libellé secteur d'activité
+  date_debut_activite: 49       # Date de début d'activité
+  date_fin_activite: 50         # Date de fin d'activité
+  statut_activite: "Actif"      # Valeur par défaut (calculée selon dates)
+  
+# Table STRUCTURES
+mapping_structures:
+  siret: 19                     # Numéro SIRET site
+  finess: 21                    # Numéro FINESS site
+  raison_sociale: 24            # Raison sociale site
+  enseigne_commerciale: 25      # Enseigne commerciale site
+  type_structure: 14            # Libellé type savoir-faire
+  
+# Table ADRESSES
+mapping_adresses:
+  id_professionnel: 0           # Identifiant PP (FK)
+  type_adresse: "Exercice"      # Valeur par défaut
+  numero_voie: 28               # Numéro Voie
+  type_voie: 31                 # Libellé type de voie
+  libelle_voie: 32              # Libellé Voie
+  complement_adresse: 26        # Complément destinataire
+  code_postal: 35               # Code postal
+  commune: 37                   # Libellé commune
+  code_commune_insee: 36        # Code commune
+  departement: 44               # Code Département
+  region: null                  # À déduire du département
+  pays: 39                      # Libellé pays (défaut: France)
+  
+# Table CONTACTS
+mapping_contacts:
+  id_professionnel: 0           # Identifiant PP (FK)
+  
+  # Téléphone 1
+  telephone_1:
+    valeur: 40                  # Téléphone (coord. structure)
+    type_contact: "TELEPHONE"
+    categorie: "Pro"
+    priorite: 80
+    source_origine: "RPPS"
+    
+  # Téléphone 2
+  telephone_2:
+    valeur: 41                  # Téléphone 2 (coord. structure)
+    type_contact: "TELEPHONE"
+    categorie: "Pro"
+    priorite: 70
+    source_origine: "RPPS"
+    
+  # Fax
+  fax:
+    valeur: 42                  # Télécopie (coord. structure)
+    type_contact: "FAX"
+    categorie: "Pro"
+    priorite: 50
+    source_origine: "RPPS"
+    
+  # Email
+  email:
+    valeur: 43                  # Adresse e-mail (coord. structure)
+    type_contact: "EMAIL"
+    categorie: "Pro"
+    priorite: 90
+    source_origine: "RPPS"
+
+# =============================================
+# RÈGLES DE VALIDATION
+# =============================================
+
+validations:
+  id_professionnel:
+    required: true
+    pattern: "^[0-9]{11}$"
+    description: "RPPS : 11 chiffres"
+    
+  code_profession:
+    required: true
+    allowed_values: ["10", "21", "50", "60", "70", "80", "91", "94"]
+    description: "Codes professions cibles"
+    
+  telephone:
+    pattern: "^(0|\+33)[0-9]{9}$"
+    clean: true                 # Nettoyer les espaces/points
+    description: "Format français"
+    
+  email:
+    pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    description: "Format email valide"
+    
+  code_postal:
+    pattern: "^[0-9]{5}$"
+    exclude_patterns: ["^97", "^98"]  # Exclut DOM-TOM
+    description: "Code postal France métropolitaine"
+    
+  mode_exercice:
+    priority_keywords:
+      - "Lib"
+      - "indép"
+      - "artis"
+    description: "Prioriser exercice libéral"
+
+# =============================================
+# TRANSFORMATION DES DONNÉES
+# =============================================
+
+transformations:
+  # Catégorisation profession
+  categorie_profession_mapping:
+    "Médecin": "Médecin"
+    "Chirurgien-Dentiste": "Médecin"
+    "Sage-Femme": "Paramédical"
+    "Infirmier": "Paramédical"
+    "Masseur-Kinésithérapeute": "Paramédical"
+    "Pédicure-Podologue": "Paramédical"
+    "Ergothérapeute": "Paramédical"
+    "Orthophoniste": "Paramédical"
+    "Pharmacien": "Pharmacien"
+    
+  # Mapping départements → régions
+  departement_region_mapping:
+    "75": "Île-de-France"
+    "77": "Île-de-France"
+    "78": "Île-de-France"
+    "91": "Île-de-France"
+    "92": "Île-de-France"
+    "93": "Île-de-France"
+    "94": "Île-de-France"
+    "95": "Île-de-France"
+    "13": "Provence-Alpes-Côte d'Azur"
+    "06": "Provence-Alpes-Côte d'Azur"
+    "83": "Provence-Alpes-Côte d'Azur"
+    "84": "Provence-Alpes-Côte d'Azur"
+    "31": "Occitanie"
+    "33": "Nouvelle-Aquitaine"
+    "34": "Occitanie"
+    "44": "Pays de la Loire"
+    "59": "Hauts-de-France"
+    "69": "Auvergne-Rhône-Alpes"
+    # ... (compléter selon besoins)
+    
+  # Nettoyage téléphones
+  telephone_clean_patterns:
+    - "[^0-9+]"               # Retire tout sauf chiffres et +
+    - "^0033"                 # Remplace 0033 par +33
+    
+  # Statut activité (selon dates)
+  statut_activite_rules:
+    - if: "date_fin_activite IS NULL OR date_fin_activite > SYSDATE"
+      then: "Actif"
+    - if: "date_fin_activite <= SYSDATE"
+      then: "Cessé"

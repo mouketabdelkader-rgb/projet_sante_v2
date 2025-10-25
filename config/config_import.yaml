@@ -1,0 +1,71 @@
+# Configuration Extracteur RPPS v2.0
+# À placer dans config/import_config.yaml
+
+# Performance et batchs
+performance:
+  batch_size: 10000           # Taille initiale des batchs
+  batch_size_min: 2000        # Taille minimale en cas d'erreur UNDO
+  batch_size_structures: 5000 # Batch pour structures (ID Map)
+  id_map_chunk_size: 900      # Limite Oracle pour clause IN
+  commit_frequency: 1         # COMMIT après N batchs (1 = chaque batch)
+
+# Gestion des erreurs
+error_handling:
+  max_retry_undo: 3           # Tentatives max sur ORA-30036
+  max_errors: 1000            # Arrêt si trop d'erreurs de parsing
+  auto_reduce_batch: true     # Réduction auto du batch_size
+
+# Fichier source
+source:
+  fichier_rpps: "PS_LibreAcces_Personne_activite_202509230829.txt"
+  encoding: "utf-8"
+  delimiter: "|"
+
+# Logging
+logging:
+  level: "INFO"               # DEBUG, INFO, WARNING, ERROR
+  file: "import_rpps_v2.log"
+  console: true
+  max_file_size_mb: 50
+
+# Validation
+validation:
+  validate_emails: true
+  validate_phones: true
+  min_phone_length: 10
+
+# Mapping colonnes RPPS (indices dans le fichier pipe-delimited)
+# Ne pas modifier sauf si format RPPS change
+columns:
+  id_professionnel: 0
+  nom: 7
+  prenom: 8
+  code_profession: 9
+  libelle_profession: 10
+  code_categorie: 11
+  code_savoir_faire: 15
+  libelle_savoir_faire: 16
+  code_mode_exercice: 17
+  mode_exercice: 18
+  siret: 21
+  finess: 23
+  identifiant_technique: 25
+  autorite: 27
+  numero_voie: 28
+  type_voie: 30
+  libelle_voie: 31
+  code_postal: 35
+  commune: 37
+  telephone_1: 40
+  telephone_2: 41
+  email: 43
+
+# Nettoyage initial
+cleanup:
+  truncate_before_import: true
+  tables:
+    - contacts
+    - adresses
+    - activites
+    - structures
+    - professionnels

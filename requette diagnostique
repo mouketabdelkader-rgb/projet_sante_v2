@@ -1,0 +1,124 @@
+SQL> SELECT COUNT(*) as total,
+  2  	COUNT(CASE WHEN statut_enregistrement = 'Actif' THEN 1 END) as actifs,
+  3     COUNT(CASE WHEN statut_enregistrement = 'Inactif' THEN 1 END) as inactifs                                                    
+  4  FROM professionnels;
+
+     TOTAL     ACTIFS	INACTIFS
+---------- ---------- ----------
+	 1	    1	       0
+
+
+SQL> SELECT statut_enregistrement, COUNT(*) as nb
+  2  FROM professionnels
+  3  GROUP BY statut_enregistrement;
+
+STATUT_ENREGISTREMENT					   NB
+-------------------------------------------------- ----------
+Actif							    1
+
+SQL> 
+QL> SELECT COUNT(DISTINCT id_professionnel) as nb_pros_avec_activites
+FROM activites;  2  
+
+NB_PROS_AVEC_ACTIVITES
+----------------------
+		     1
+SQL> SELECT id_professionnel, COUNT(*) as nb_activites
+FROM activites
+GROUP BY id_professionnel
+ORDER BY DBMS_RANDOM.VALUE
+FETCH FIRST 10 ROWS ONLY;  2    3    4    5  
+
+ID_PROFESSIONNEL     NB_ACTIVITES
+-------------------- ------------
+8			  1630654
+
+SQL> 
+SQL> SELECT id_professionnel, nom, prenom, libelle_profession, statut_enregistrement
+FROM professionnels
+WHERE statut_enregistrement = 'Actif'
+AND ROWNUM <= 20;  2    3    4  
+
+ID_PROFESSIONNEL
+--------------------
+NOM
+--------------------------------------------------------------------------------
+PRENOM
+--------------------------------------------------------------------------------
+LIBELLE_PROFESSION
+--------------------------------------------------------------------------------
+STATUT_ENREGISTREMENT
+--------------------------------------------------
+8
+LUNGU
+REMUS
+
+ID_PROFESSIONNEL
+--------------------
+NOM
+--------------------------------------------------------------------------------
+PRENOM
+--------------------------------------------------------------------------------
+LIBELLE_PROFESSION
+--------------------------------------------------------------------------------
+STATUT_ENREGISTREMENT
+--------------------------------------------------
+Masseur-Kinesitherapeute
+Actif
+
+
+SQL> SELECT id_professionnel, nom, prenom, libelle_profession, statut_enregistrement
+FROM professionnels
+WHERE statut_enregistrement = 'Inactif'
+AND ROWNUM <= 10;  2    3    4  
+
+no rows selected
+
+SQL> 
+SQL> SELECT libelle_profession, COUNT(*) as nb
+FROM professionnels
+GROUP BY libelle_profession
+ORDER BY COUNT(*) DESC
+FETCH FIRST 10 ROWS ONLY;  2    3    4    5  
+
+LIBELLE_PROFESSION
+--------------------------------------------------------------------------------
+	NB
+----------
+Masseur-Kinesitherapeute
+	 1
+
+
+SQL> SELECT 
+    id_log,
+    TO_CHAR(date_debut, 'DD/MM HH24:MI') as date,
+    statut,
+    nb_lignes_traitees,
+    nb_lignes_inserees,
+    nb_erreurs,
+    ROUND(duree_secondes/60, 1) as duree_min
+FROM import_logs
+ORDER BY date_debut DESC
+FETCH FIRST 5 ROWS ONLY;  2    3    4    5    6    7    8    9   10   11  
+    TO_CHAR(date_debut, 'DD/MM HH24:MI') as date,
+                                            *
+ERROR at line 3:
+ORA-00923: FROM keyword not found where expected
+
+
+SQL> 
+(venv) kader@kader-Lenovo-V110-15ISK:~/Dev/Extracteur_BDD_Sante/projet_sante_v2$ python diagnostic_pro.py
+======================================================================
+DIAGNOSTIC PROFESSIONNELS
+======================================================================
+
+1. TOTAL PROFESSIONNELS :
+   Total   : 1
+   Actifs  : 1
+   Inactifs: 0
+
+2. PROS AVEC ACTIVITÉS :
+   1
+
+3. TOP 10 PROFESSIONS :
+   Masseur-Kinésithérapeute     

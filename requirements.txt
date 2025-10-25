@@ -1,0 +1,17 @@
+# Dépendances Python - Projet Santé Extracteur RPPS
+# Python 3.9+
+
+# Base de données Oracle
+oracledb>=2.0.0
+
+# Configuration et environnement
+python-dotenv>=1.0.0
+PyYAML>=6.0.1
+
+# Utilitaires
+tqdm>=4.66.0  # Barres de progression
+
+# (Optionnel - pour développement)
+# pytest>=7.4.0
+# black>=23.0.0
+# pylint>=2.17.0

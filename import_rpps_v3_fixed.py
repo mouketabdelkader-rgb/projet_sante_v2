@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
 """
-EXTRACTEUR RPPS OPTIMISÉ v3.0 - CORRECTION DU BUG D'ÉCRASEMENT
-================================================================
+EXTRACTEUR RPPS OPTIMISÉ v3.1 - CORRECTION DEADLOCK + PERFORMANCES
+===================================================================
 CORRECTIFS MAJEURS:
 - ✅ Déduplication intelligente des professionnels (agrégation au lieu d'écrasement)
 - ✅ Séparation claire entre données de professionnel et données d'activité
-- ✅ Optimisation de la performance avec buffers adaptés
+- ✅ MERGE atomique pour professionnels (élimine deadlock UPDATE/INSERT)
+- ✅ Batch size optimisé (10k) pour éviter contentions Oracle
 - ✅ Gestion robuste des erreurs et retry
 
+OPTIMISATIONS ANTI-DEADLOCK:
+- MERGE remplace UPDATE+INSERT séparés (ligne 437-460)
+- Pas de SELECT préalable pour vérifier existence (tout côté serveur)
+- Batch réduit à 10k pour limiter les verrous
+- Chunks SELECT IN réduits à 500 (vs 900) pour sécurité
+
 PERFORMANCES CIBLES:
-- ~1500-2000 lignes/seconde
-- Batch size adaptatif (10k-50k)
+- ~1200-1500 lignes/seconde (stable)
+- Pas de blocage Oracle
 - Gestion mémoire optimale
 """
 
@@ -30,10 +37,10 @@ load_dotenv()
 # CONFIGURATION
 # ============================================================================
 CONFIG = {
-    'batch_size': 20000,           # Batch initial augmenté
-    'batch_size_min': 5000,         # Batch minimal en cas d'erreur
-    'batch_size_max': 50000,        # Batch maximal
-    'id_map_chunk_size': 900,       # Limite Oracle pour IN clause
+    'batch_size': 10000,           # Batch optimisé (réduit pour éviter contentions)
+    'batch_size_min': 2000,         # Batch minimal en cas d'erreur
+    'batch_size_max': 20000,        # Batch maximal (réduit pour sécurité)
+    'id_map_chunk_size': 500,       # Réduit pour limiter les SELECT IN (Oracle limite 1000)
     'max_retry_undo': 3,            # Retry max sur ORA-30036
     'max_errors': 1000,             # Arrêt si trop d'erreurs
     'commit_frequency': 1,          # COMMIT après chaque batch
@@ -423,79 +430,59 @@ class OracleLoader:
     def flush(self, stats):
         """Flush tous les buffers en base"""
         try:
-            # ✅ 1. PROFESSIONNELS (UPSERT OPTIMISÉ - CORRECTION MAJEURE)
+            # ✅ 1. PROFESSIONNELS - MERGE (UPSERT ATOMIQUE - HAUTE PERFORMANCE)
             if self.professionnels_map:
                 # Convertir le dict en liste
                 unique_pros = list(self.professionnels_map.values())
 
-                # Récupérer les IDs qui existent déjà
-                ids_pros_batch = [p[0] for p in unique_pros]
-                existing_ids = set()
+                # ✅ MERGE = UPSERT atomique en une seule opération
+                # Format: [id, nom, prenom, nom_exercice, code_prof, lib_prof, code_cat, statut]
+                # (on exclut p[7] et p[8] qui sont NULL)
+                pros_for_merge = [[p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[9]] for p in unique_pros]
 
-                if ids_pros_batch:
-                    for chunk in chunks(ids_pros_batch, CONFIG['id_map_chunk_size']):
-                        if not chunk:
-                            continue
-                        placeholders = ','.join([f":{i}" for i in range(len(chunk))])
-                        query = f"SELECT id_professionnel FROM professionnels WHERE id_professionnel IN ({placeholders})"
-                        self.cursor.execute(query, chunk)
-                        for row in self.cursor.fetchall():
-                            existing_ids.add(row[0])
-
-                # Préparer les lots d'update et d'insert
-                buffer_pros_update = []
-                buffer_pros_insert = []
-                for p in unique_pros:
-                    if p[0] in existing_ids:
-                        # Format pour UPDATE: nom, prenom, nom_exercice, code_prof, lib_prof, code_cat, statut, id
-                        # On exclut p[7] et p[8] (code_savoir_faire et libelle_savoir_faire qui sont NULL)
-                        buffer_pros_update.append([p[1], p[2], p[3], p[4], p[5], p[6], p[9], p[0]])
-                    else:
-                        # Format pour INSERT: id, nom, prenom, ...
-                        buffer_pros_insert.append(p)
-
-                # Exécuter l'UPDATE en masse
-                if buffer_pros_update:
+                if pros_for_merge:
                     self.cursor.executemany("""
-                        UPDATE professionnels
-                        SET nom = :1, prenom = :2, nom_exercice = :3,
-                            code_profession = :4, libelle_profession = :5,
-                            code_categorie_profession = :6,
-                            statut_enregistrement = :7,
-                            date_derniere_maj = SYSDATE
-                        WHERE id_professionnel = :8
-                    """, buffer_pros_update)
-                    logger.debug(f"  ✓ {len(buffer_pros_update):,} professionnels mis à jour")
+                        MERGE INTO professionnels tgt
+                        USING (SELECT :1 AS id_prof, :2 AS nom, :3 AS prenom, :4 AS nom_ex,
+                                      :5 AS code_prof, :6 AS lib_prof, :7 AS code_cat, :8 AS statut
+                               FROM DUAL) src
+                        ON (tgt.id_professionnel = src.id_prof)
+                        WHEN MATCHED THEN
+                            UPDATE SET
+                                nom = src.nom,
+                                prenom = src.prenom,
+                                nom_exercice = src.nom_ex,
+                                code_profession = src.code_prof,
+                                libelle_profession = src.lib_prof,
+                                code_categorie_profession = src.code_cat,
+                                statut_enregistrement = src.statut,
+                                date_derniere_maj = SYSDATE
+                        WHEN NOT MATCHED THEN
+                            INSERT (id_professionnel, nom, prenom, nom_exercice,
+                                    code_profession, libelle_profession, code_categorie_profession,
+                                    statut_enregistrement, date_import)
+                            VALUES (src.id_prof, src.nom, src.prenom, src.nom_ex,
+                                    src.code_prof, src.lib_prof, src.code_cat,
+                                    src.statut, SYSDATE)
+                    """, pros_for_merge)
 
-                # Exécuter l'INSERT en masse
-                if buffer_pros_insert:
-                    self.cursor.executemany("""
-                        INSERT INTO professionnels (
-                            id_professionnel, nom, prenom, nom_exercice,
-                            code_profession, libelle_profession, code_categorie_profession,
-                            code_savoir_faire, libelle_savoir_faire,
-                            statut_enregistrement, date_import
-                        ) VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, SYSDATE)
-                    """, buffer_pros_insert)
-                    logger.debug(f"  ✓ {len(buffer_pros_insert):,} professionnels insérés")
+                    logger.debug(f"  ✓ {len(pros_for_merge):,} professionnels traités (MERGE)")
+                    stats['professionnels'] += len(pros_for_merge)
 
-                stats['professionnels'] += len(buffer_pros_insert)  # ✅ Compter seulement les NOUVEAUX
-
-            # 2. GESTION OPTIMISÉE DES STRUCTURES
+            # 2. STRUCTURES - INSERT SIMPLE (la logique v2 fonctionnait bien)
             if self.buffer_structures:
                 unique_structures = list(set(self.buffer_structures))
 
-                # Étape A: Récupérer les IDs des structures déjà existantes
+                # ✅ Récupérer d'abord les IDs existants
                 id_map = self.build_id_map_chunked(unique_structures)
 
-                # Étape B: Identifier les structures à insérer
+                # ✅ Insérer seulement les nouvelles structures
                 structures_a_inserer = []
                 for siret, finess, id_tech in unique_structures:
                     key = siret or finess or id_tech
                     if key not in id_map:
                         structures_a_inserer.append((siret, finess, id_tech))
 
-                # Étape C: Insérer uniquement les nouvelles structures
                 if structures_a_inserer:
                     self.cursor.executemany("""
                         INSERT INTO structures (siret, finess, identifiant_technique, date_import)
@@ -503,7 +490,7 @@ class OracleLoader:
                     """, structures_a_inserer)
                     stats['structures'] += len(structures_a_inserer)
 
-                    # Étape D: Récupérer les IDs des nouvelles structures et mettre à jour la map
+                    # Récupérer les IDs des nouvelles structures
                     nouveaux_ids_map = self.build_id_map_chunked(structures_a_inserer)
                     id_map.update(nouveaux_ids_map)
 

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-EXTRACTEUR RPPS OPTIMISÉ v2.0
+EXTRACTEUR RPPS OPTIMISÉ v2.1 - BUG D'ÉCRASEMENT CORRIGÉ
 - csv.reader pour parsing rapide
 - Batchs 10k lignes (ajustement dynamique)
 - Retry automatique sur ORA-30036
 - Config externalisée
-- Performance: ~1200 l/s cible
+- Performance: ~500-600 l/s
+- ✅ CORRECTION: Déduplication avec dict (garde PREMIÈRE occurrence)
+- ✅ CORRECTION: code_savoir_faire retiré de professionnels (va dans activités)
 """
 import oracledb
 import os
@@ -303,23 +305,26 @@ class OracleLoader:
         self.cursor = conn.cursor()
         self.current_batch_size = CONFIG['batch_size']
         self.retry_count_undo = 0
-        
+
         # Buffers
-        self.buffer_pros = []
+        self.buffer_pros = {}  # ✅ CORRECTION: dict au lieu de list pour déduplication
         self.buffer_structures = []
         self.buffer_activites = []
         self.buffer_adresses = []
         self.buffer_contacts = []
-    
+
     def add_record(self, record):
         """Ajoute un enregistrement aux buffers"""
-        # Professionnel
+        # ✅ CORRECTION: Professionnel - garder seulement la PREMIÈRE occurrence
         p = record['professionnel']
-        self.buffer_pros.append([
-            p['id'], p['nom'], p['prenom'], p['nom'],
-            p['code_profession'], p['libelle_profession'], p['code_categorie'],
-            p['code_savoir_faire'], p['libelle_savoir_faire'], p['statut']
-        ])
+        prof_id = p['id']
+
+        if prof_id not in self.buffer_pros:
+            self.buffer_pros[prof_id] = [
+                p['id'], p['nom'], p['prenom'], p['nom'],
+                p['code_profession'], p['libelle_profession'], p['code_categorie'],
+                None, None, p['statut']  # ✅ code_savoir_faire et libelle_savoir_faire => NULL
+            ]
         
         # Structure
         if record['structure']:
@@ -400,9 +405,8 @@ class OracleLoader:
         try:
             # 1. PROFESSIONNELS (UPSERT OPTIMISÉ)
             if self.buffer_pros:
-                # Dé-duplication: garder la dernière version de chaque professionnel
-                pros_dict = {p[0]: p for p in self.buffer_pros}
-                unique_pros = list(pros_dict.values())
+                # ✅ CORRECTION: buffer_pros est déjà un dict dédupliqué
+                unique_pros = list(self.buffer_pros.values())
 
                 # Séparer les données pour l'UPDATE et l'INSERT
                 ids_pros_batch = [p[0] for p in unique_pros]
@@ -543,7 +547,7 @@ class OracleLoader:
                 stats['contacts'] += len(unique_contacts)
 
             # Vider tous les buffers après traitement
-            self.buffer_pros = []
+            self.buffer_pros = {}  # ✅ CORRECTION: vider le dict
             self.buffer_structures = []
             self.buffer_activites = []
             self.buffer_adresses = []
@@ -591,7 +595,7 @@ class OracleLoader:
 # ============================================================================
 def main():
     logger.info("="*70)
-    logger.info("🚀 EXTRACTEUR RPPS OPTIMISÉ v2.0")
+    logger.info("🚀 EXTRACTEUR RPPS OPTIMISÉ v2.1 - BUG ÉCRASEMENT CORRIGÉ")
     logger.info("="*70)
     logger.info(f"📁 Fichier : {CONFIG['fichier_rpps']}")
     logger.info(f"📦 Batch size initial : {CONFIG['batch_size']:,}")

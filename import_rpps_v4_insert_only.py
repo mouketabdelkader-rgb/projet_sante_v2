@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """
-EXTRACTEUR RPPS OPTIMISÉ v2.1 - BUG D'ÉCRASEMENT CORRIGÉ
-- csv.reader pour parsing rapide
-- Batchs 10k lignes (ajustement dynamique)
-- Retry automatique sur ORA-30036
-- Config externalisée
-- Performance: ~500-600 l/s
-- ✅ CORRECTION: Déduplication avec dict (garde PREMIÈRE occurrence)
-- ✅ CORRECTION: code_savoir_faire retiré de professionnels (va dans activités)
+EXTRACTEUR RPPS v4.0 - INSERT OPTIMISÉ (PREMIER IMPORT)
+========================================================
+OPTIMISATION MAJEURE:
+- ✅ INSERT pur au lieu de MERGE (10-20x plus rapide pour premier import)
+- ✅ Batch size optimal (5000 lignes)
+- ✅ Pas de vérification d'existence (table vide après TRUNCATE)
+- ✅ Performance attendue: 2000-3000 l/s
+
+USAGE:
+- Utilisez ce script pour le PREMIER import (tables vides)
+- Pour les imports suivants (mise à jour), utilisez v3_fixed avec MERGE
+
+ATTENTION:
+- Ce script TRUNCATE toutes les tables au démarrage !
 """
+
 import oracledb
 import os
 import csv
@@ -21,18 +28,17 @@ import logging
 load_dotenv()
 
 # ============================================================================
-# CONFIGURATION (À EXTERNALISER EN YAML PLUS TARD)
+# CONFIGURATION
 # ============================================================================
 CONFIG = {
-    'batch_size': 10000,          # Batch initial
-    'batch_size_min': 2000,        # Batch minimal en cas d'erreur
-    'batch_size_structures': 5000, # Batch structures (ID Map)
-    'id_map_chunk_size': 900,      # Limite Oracle pour IN clause
-    'max_retry_undo': 3,           # Retry max sur ORA-30036
-    'max_errors': 1000,            # Arrêt si trop d'erreurs
-    'commit_frequency': 1,         # COMMIT après chaque batch
+    'batch_size': 5000,             # Batch optimisé pour INSERT pur
+    'batch_size_min': 1000,         # Batch minimal
+    'id_map_chunk_size': 500,       # Pour SELECT IN
+    'max_retry_undo': 3,
+    'max_errors': 1000,
     'fichier_rpps': 'PS_LibreAcces_Personne_activite_202509230829.txt',
     'debug_mode': os.getenv("DEBUG_MODE", "False").lower() == "true",
+    'progress_interval': 25000,     # Progression tous les 25k lignes
 }
 
 # ============================================================================
@@ -42,7 +48,7 @@ logging.basicConfig(
     level=logging.DEBUG if CONFIG['debug_mode'] else logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('import_rpps_v2.log'),
+        logging.FileHandler('import_rpps_v4.log'),
         logging.StreamHandler()
     ]
 )
@@ -59,7 +65,7 @@ def init_oracle():
             oracledb.init_oracle_client(lib_dir=oracle_home)
         except:
             pass
-    
+
     return oracledb.connect(
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
@@ -69,54 +75,42 @@ def init_oracle():
     )
 
 # ============================================================================
-# UTILITAIRES
+# UTILITAIRES (copie de v3)
 # ============================================================================
 def clean_phone(phone):
-    """Nettoie un numéro de téléphone"""
     if not phone:
         return None
     phone = re.sub(r'[^\d+]', '', phone)
     return phone if phone and len(phone) >= 10 else None
 
 def is_valid_email(email):
-    """Valide un email"""
     if not email:
         return False
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return bool(re.match(pattern, email))
 
 def chunks(lst, n):
-    """Divise une liste en chunks de taille n"""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
 def extract_departement(code_postal):
-    """Extrait le département depuis le code postal"""
     if not code_postal:
         return None
-    
     cp = str(code_postal).strip()
-    
-    # Corse
     if cp.startswith('20'):
         if cp[:3] in ['200', '201']:
             return '2A'
         return '2B'
-    
-    # DOM-TOM
     if cp.startswith(('97', '98')) and len(cp) >= 3:
         return cp[:3]
-    
-    # Métropole
     if len(cp) == 5:
         return cp[:2]
     elif len(cp) == 4:
         return '0' + cp[0]
-    
     return None
 
 # ============================================================================
-# MAPPING COLONNES RPPS
+# MAPPING COLONNES
 # ============================================================================
 COLUMNS_MAP = {
     'id_professionnel': 0,
@@ -144,23 +138,19 @@ COLUMNS_MAP = {
 }
 
 def get_value(fields, col_name, default='', max_len=None):
-    """Extrait une valeur de la ligne avec gestion d'erreur"""
     try:
         idx = COLUMNS_MAP.get(col_name)
         if idx is None:
             return default
-        
         val = fields[idx].strip() if idx < len(fields) else default
-        
         if max_len and val:
             val = val[:max_len]
-        
         return val if val else default
     except (IndexError, AttributeError):
         return default
 
 # ============================================================================
-# EXTRACTION ET PARSING
+# EXTRACTION (copie de v3)
 # ============================================================================
 class RPPSExtractor:
     def __init__(self, fichier_rpps):
@@ -176,32 +166,23 @@ class RPPSExtractor:
             'inactifs': 0,
             'erreurs': 0,
         }
-    
+
     def extract(self):
-        """
-        Générateur qui lit le fichier RPPS ligne par ligne
-        et yield des dictionnaires structurés
-        """
         logger.info(f"📖 Lecture fichier : {self.fichier_rpps}")
-        
+
         with open(self.fichier_rpps, 'r', encoding='utf-8') as f:
-            # Utilisation de csv.reader pour parsing rapide
             reader = csv.reader(f, delimiter='|')
-            
-            # Skip header
-            next(reader)
-            
+            next(reader)  # Skip header
+
             for fields in reader:
                 self.stats['lignes_lues'] += 1
-                
+
                 try:
-                    # Extraction des données
                     id_prof = get_value(fields, 'id_professionnel')
                     if not id_prof:
                         self.stats['erreurs'] += 1
                         continue
-                    
-                    # Professionnel
+
                     nom = get_value(fields, 'nom', max_len=100)
                     prenom = get_value(fields, 'prenom', max_len=100)
                     code_prof = get_value(fields, 'code_profession', max_len=10)
@@ -209,38 +190,32 @@ class RPPSExtractor:
                     code_cat = get_value(fields, 'code_categorie', max_len=2)
                     code_sf = get_value(fields, 'code_savoir_faire', max_len=10)
                     lib_sf = get_value(fields, 'libelle_savoir_faire', max_len=200)
-                    
-                    # Statut
+
                     mode_ex = get_value(fields, 'mode_exercice')
                     autorite = get_value(fields, 'autorite')
                     statut = 'Inactif' if (not mode_ex or autorite.endswith('//')) else 'Actif'
-                    
+
                     if statut == 'Inactif':
                         self.stats['inactifs'] += 1
-                    
-                    # Structure (clé = SIRET OU FINESS OU ID_TECH)
+
                     siret = get_value(fields, 'siret', max_len=14)
                     finess = get_value(fields, 'finess', max_len=9)
                     id_tech = get_value(fields, 'identifiant_technique', max_len=50)
                     key = siret or finess or id_tech
-                    
-                    # Contacts
+
                     tel1 = clean_phone(get_value(fields, 'telephone_1'))
                     tel2 = clean_phone(get_value(fields, 'telephone_2'))
                     email = get_value(fields, 'email').lower()
-                    
-                    # Adresse
+
                     numero = get_value(fields, 'numero_voie', max_len=10)
                     type_voie = get_value(fields, 'type_voie', max_len=50)
                     lib_voie = get_value(fields, 'libelle_voie', max_len=200)
                     cp = get_value(fields, 'code_postal', max_len=5)
                     commune = get_value(fields, 'commune', max_len=100)
                     dept = extract_departement(cp)
-                    
-                    # Activité
+
                     code_mode = get_value(fields, 'code_mode_exercice', max_len=1)
-                    
-                    # Yield un dictionnaire structuré
+
                     yield {
                         'professionnel': {
                             'id': id_prof,
@@ -249,8 +224,6 @@ class RPPSExtractor:
                             'code_profession': code_prof,
                             'libelle_profession': lib_prof,
                             'code_categorie': code_cat,
-                            'code_savoir_faire': code_sf,
-                            'libelle_savoir_faire': lib_sf,
                             'statut': statut,
                         },
                         'structure': {
@@ -286,28 +259,28 @@ class RPPSExtractor:
                             if email and is_valid_email(email) else None,
                         ]
                     }
-                
+
                 except Exception as e:
                     self.stats['erreurs'] += 1
                     if self.stats['erreurs'] <= 10:
                         logger.error(f"Erreur ligne {self.stats['lignes_lues']}: {e}")
-                    
+
                     if self.stats['erreurs'] > CONFIG['max_errors']:
                         logger.error("Trop d'erreurs, arrêt.")
                         raise
 
 # ============================================================================
-# CHARGEMENT ORACLE
+# LOADER OPTIMISÉ - INSERT PUR
 # ============================================================================
-class OracleLoader:
+class OracleLoaderInsertOnly:
     def __init__(self, conn):
         self.conn = conn
         self.cursor = conn.cursor()
         self.current_batch_size = CONFIG['batch_size']
         self.retry_count_undo = 0
 
-        # Buffers
-        self.buffer_pros = {}  # ✅ CORRECTION: dict au lieu de list pour déduplication
+        # Déduplication avec dict
+        self.professionnels_map = {}
         self.buffer_structures = []
         self.buffer_activites = []
         self.buffer_adresses = []
@@ -315,31 +288,27 @@ class OracleLoader:
 
     def add_record(self, record):
         """Ajoute un enregistrement aux buffers"""
-        # ✅ CORRECTION: Professionnel - garder seulement la PREMIÈRE occurrence
         p = record['professionnel']
         prof_id = p['id']
 
-        if prof_id not in self.buffer_pros:
-            self.buffer_pros[prof_id] = [
-                p['id'], p['nom'], p['prenom'], p['nom'],
+        if prof_id not in self.professionnels_map:
+            self.professionnels_map[prof_id] = [
+                prof_id, p['nom'], p['prenom'], p['nom'],
                 p['code_profession'], p['libelle_profession'], p['code_categorie'],
-                None, None, p['statut']  # ✅ code_savoir_faire et libelle_savoir_faire => NULL
+                None, None, p['statut']
             ]
-        
-        # Structure
+
         if record['structure']:
             s = record['structure']
             self.buffer_structures.append((s['siret'], s['finess'], s['identifiant_technique']))
-        
-        # Activité
+
         if record['activite']:
             a = record['activite']
             self.buffer_activites.append([
                 a['id_professionnel'], a['key'], a['code_savoir_faire'],
                 a['libelle_savoir_faire'], a['code_mode_exercice'], a['mode_exercice']
             ])
-        
-        # Adresse
+
         if record['adresse']:
             ad = record['adresse']
             self.buffer_adresses.append([
@@ -347,31 +316,28 @@ class OracleLoader:
                 ad['numero'], ad['type_voie'], ad['libelle_voie'],
                 ad['code_postal'], ad['commune'], ad['departement']
             ])
-        
-        # Contacts
+
         for contact in record['contacts']:
             if contact:
                 self.buffer_contacts.append([
                     contact['id_professionnel'], contact['type'],
                     contact['valeur'], contact['priorite']
                 ])
-    
+
     def should_flush(self):
-        """Vérifie si on doit flusher les buffers"""
         return len(self.buffer_activites) >= self.current_batch_size
-    
+
     def build_id_map_chunked(self, unique_structures):
-        """Construit l'ID Map en chunks pour éviter ORA-01795"""
+        """Construit l'ID Map en chunks"""
         id_map = {}
-        
+
         if not unique_structures:
             return id_map
-        
+
         sirets = list(set(s for s, f, i in unique_structures if s))
         finess = list(set(f for s, f, i in unique_structures if f))
         id_techs = list(set(i for s, f, i in unique_structures if i))
-        
-        # SIRET
+
         for chunk in chunks(sirets, CONFIG['id_map_chunk_size']):
             if chunk:
                 placeholders = ','.join([f":{i}" for i in range(len(chunk))])
@@ -379,8 +345,7 @@ class OracleLoader:
                 self.cursor.execute(query, chunk)
                 for id_struct, s in self.cursor.fetchall():
                     id_map[s] = id_struct
-        
-        # FINESS
+
         for chunk in chunks(finess, CONFIG['id_map_chunk_size']):
             if chunk:
                 placeholders = ','.join([f":{i}" for i in range(len(chunk))])
@@ -388,8 +353,7 @@ class OracleLoader:
                 self.cursor.execute(query, chunk)
                 for id_struct, f in self.cursor.fetchall():
                     id_map[f] = id_struct
-        
-        # ID TECHNIQUE
+
         for chunk in chunks(id_techs, CONFIG['id_map_chunk_size']):
             if chunk:
                 placeholders = ','.join([f":{i}" for i in range(len(chunk))])
@@ -397,57 +361,18 @@ class OracleLoader:
                 self.cursor.execute(query, chunk)
                 for id_struct, i in self.cursor.fetchall():
                     id_map[i] = id_struct
-        
+
         return id_map
-    
+
     def flush(self, stats):
-        """Flush tous les buffers en base"""
+        """Flush - INSERT PUR (pas de MERGE)"""
         try:
-            # 1. PROFESSIONNELS (UPSERT OPTIMISÉ)
-            if self.buffer_pros:
-                # ✅ CORRECTION: buffer_pros est déjà un dict dédupliqué
-                unique_pros = list(self.buffer_pros.values())
+            # ✅ 1. PROFESSIONNELS - INSERT SIMPLE
+            if self.professionnels_map:
+                unique_pros = list(self.professionnels_map.values())
 
-                # Séparer les données pour l'UPDATE et l'INSERT
-                ids_pros_batch = [p[0] for p in unique_pros]
-                
-                # Récupérer les IDs qui existent déjà
-                existing_ids = set()
-                if ids_pros_batch:
-                    for chunk in chunks(ids_pros_batch, CONFIG['id_map_chunk_size']):
-                        if not chunk:
-                            continue
-                        placeholders = ','.join([f":{i}" for i in range(len(chunk))])
-                        query = f"SELECT id_professionnel FROM professionnels WHERE id_professionnel IN ({placeholders})"
-                        self.cursor.execute(query, chunk)
-                        for row in self.cursor.fetchall():
-                            existing_ids.add(row[0])
-                
-                # Préparer les lots d'update et d'insert
-                buffer_pros_update = []
-                buffer_pros_insert = []
-                for p in unique_pros:
-                    if p[0] in existing_ids:
-                        # Format pour UPDATE: nom, prenom, ..., id
-                        buffer_pros_update.append(p[1:] + [p[0]])
-                    else:
-                        # Format pour INSERT: id, nom, prenom, ...
-                        buffer_pros_insert.append(p)
-
-                # Exécuter l'UPDATE en masse
-                if buffer_pros_update:
-                    self.cursor.executemany("""
-                        UPDATE professionnels
-                        SET nom = :1, prenom = :2, nom_exercice = :3,
-                            code_profession = :4, libelle_profession = :5,
-                            code_categorie_profession = :6, code_savoir_faire = :7,
-                            libelle_savoir_faire = :8, statut_enregistrement = :9,
-                            date_derniere_maj = SYSDATE
-                        WHERE id_professionnel = :10
-                    """, buffer_pros_update)
-
-                # Exécuter l'INSERT en masse
-                if buffer_pros_insert:
+                if unique_pros:
+                    logger.debug(f"  → Insertion de {len(unique_pros):,} professionnels...")
                     self.cursor.executemany("""
                         INSERT INTO professionnels (
                             id_professionnel, nom, prenom, nom_exercice,
@@ -455,37 +380,33 @@ class OracleLoader:
                             code_savoir_faire, libelle_savoir_faire,
                             statut_enregistrement, date_import
                         ) VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, SYSDATE)
-                    """, buffer_pros_insert)
+                    """, unique_pros)
+                    stats['professionnels'] += len(unique_pros)
+                    logger.debug(f"  ✓ {len(unique_pros):,} professionnels insérés")
 
-                stats['professionnels'] += len(unique_pros)
-            
-            # 2. GESTION OPTIMISÉE DES STRUCTURES
+            # 2. STRUCTURES
             if self.buffer_structures:
                 unique_structures = list(set(self.buffer_structures))
-                
-                # Étape A: Récupérer les IDs des structures déjà existantes
                 id_map = self.build_id_map_chunked(unique_structures)
-                
-                # Étape B: Identifier les structures à insérer
+
                 structures_a_inserer = []
                 for siret, finess, id_tech in unique_structures:
                     key = siret or finess or id_tech
                     if key not in id_map:
                         structures_a_inserer.append((siret, finess, id_tech))
-                
-                # Étape C: Insérer uniquement les nouvelles structures
+
                 if structures_a_inserer:
+                    logger.debug(f"  → Insertion de {len(structures_a_inserer):,} structures...")
                     self.cursor.executemany("""
                         INSERT INTO structures (siret, finess, identifiant_technique, date_import)
                         VALUES (:1, :2, :3, SYSDATE)
                     """, structures_a_inserer)
                     stats['structures'] += len(structures_a_inserer)
-                    
-                    # Étape D: Récupérer les IDs des nouvelles structures et mettre à jour la map
+
                     nouveaux_ids_map = self.build_id_map_chunked(structures_a_inserer)
                     id_map.update(nouveaux_ids_map)
 
-                # 4. ACTIVITÉS
+                # 3. ACTIVITÉS
                 if self.buffer_activites:
                     activites_with_ids = []
                     for id_prof, key, code_sf, lib_sf, code_mode, mode_ex in self.buffer_activites:
@@ -496,8 +417,9 @@ class OracleLoader:
                             ])
                         else:
                             stats['activites_perdues'] += 1
-                    
+
                     if activites_with_ids:
+                        logger.debug(f"  → Insertion de {len(activites_with_ids):,} activités...")
                         self.cursor.executemany("""
                             INSERT INTO activites (
                                 id_professionnel, id_structure,
@@ -507,8 +429,8 @@ class OracleLoader:
                             ) VALUES (:1, :2, :3, :4, :5, :6, 'Actif', SYSDATE)
                         """, activites_with_ids)
                         stats['activites'] += len(activites_with_ids)
-                    
-                # 5. ADRESSES
+
+                # 4. ADRESSES
                 if self.buffer_adresses:
                     adresses_with_ids = []
                     for id_prof, key, type_adr, numero, type_voie, lib_voie, cp, commune, dept in self.buffer_adresses:
@@ -518,7 +440,7 @@ class OracleLoader:
                                 id_prof, id_struct, type_adr, numero, type_voie,
                                 lib_voie, cp, commune, dept
                             ])
-                    
+
                     if adresses_with_ids:
                         self.cursor.executemany("""
                             INSERT INTO adresses (
@@ -528,10 +450,9 @@ class OracleLoader:
                             ) VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9, 'France', SYSDATE)
                         """, adresses_with_ids)
                         stats['adresses'] += len(adresses_with_ids)
-                    
-            # 6. CONTACTS
+
+            # 5. CONTACTS
             if self.buffer_contacts:
-                # Dé-duplication
                 unique_contacts = list(set(tuple(c) for c in self.buffer_contacts))
 
                 self.cursor.executemany("""
@@ -546,8 +467,8 @@ class OracleLoader:
                 """, unique_contacts)
                 stats['contacts'] += len(unique_contacts)
 
-            # Vider tous les buffers après traitement
-            self.buffer_pros = {}  # ✅ CORRECTION: vider le dict
+            # Vider les buffers
+            self.professionnels_map = {}
             self.buffer_structures = []
             self.buffer_activites = []
             self.buffer_adresses = []
@@ -555,33 +476,28 @@ class OracleLoader:
 
             # COMMIT
             self.conn.commit()
-            
-            # Reset retry counter on success
             self.retry_count_undo = 0
-            
+
         except oracledb.DatabaseError as e:
             error_code = e.args[0].code if hasattr(e.args[0], 'code') else 0
-            
-            # Retry sur ORA-30036 (UNDO saturé)
+
             if error_code == 30036:
                 self.retry_count_undo += 1
-                
+
                 if self.retry_count_undo <= CONFIG['max_retry_undo']:
-                    # Réduire la taille du batch
                     old_size = self.current_batch_size
                     self.current_batch_size = max(
                         CONFIG['batch_size_min'],
                         self.current_batch_size // 2
                     )
-                    
+
                     logger.warning(
                         f"⚠️  ORA-30036 : Réduction batch {old_size} → {self.current_batch_size} "
                         f"(tentative {self.retry_count_undo}/{CONFIG['max_retry_undo']})"
                     )
-                    
-                    # Rollback et retry avec batch plus petit
+
                     self.conn.rollback()
-                    return  # Ne pas vider les buffers, ils seront re-flushés
+                    return
                 else:
                     logger.error("❌ ORA-30036 : Trop de tentatives")
                     raise
@@ -595,14 +511,13 @@ class OracleLoader:
 # ============================================================================
 def main():
     logger.info("="*70)
-    logger.info("🚀 EXTRACTEUR RPPS OPTIMISÉ v2.1 - BUG ÉCRASEMENT CORRIGÉ")
+    logger.info("🚀 EXTRACTEUR RPPS v4.0 - INSERT OPTIMISÉ")
     logger.info("="*70)
     logger.info(f"📁 Fichier : {CONFIG['fichier_rpps']}")
-    logger.info(f"📦 Batch size initial : {CONFIG['batch_size']:,}")
-    
+    logger.info(f"📦 Batch size : {CONFIG['batch_size']:,}")
+
     start_time = datetime.now()
-    
-    # Stats
+
     stats = {
         'lignes_lues': 0,
         'professionnels': 0,
@@ -614,20 +529,17 @@ def main():
         'inactifs': 0,
         'erreurs': 0,
     }
-    
-    # Connexion
+
     conn = init_oracle()
     logger.info("✅ Connexion Oracle établie")
-    
-    # Nettoyage
+
     logger.info("🧹 Nettoyage des tables...")
     cursor = conn.cursor()
     for table in ['contacts', 'adresses', 'activites', 'structures', 'professionnels']:
         cursor.execute(f"TRUNCATE TABLE {table}")
     conn.commit()
     logger.info("✅ Tables vidées")
-    
-    # Log import
+
     cursor.execute("""
         INSERT INTO import_logs (script_execute, date_debut, date_import, statut)
         VALUES (:1, SYSDATE, SYSDATE, 'En cours')
@@ -635,37 +547,34 @@ def main():
     conn.commit()
     cursor.execute("SELECT MAX(id_log) FROM import_logs")
     id_log = cursor.fetchone()[0]
-    
-    # Extraction et chargement
+
     extractor = RPPSExtractor(CONFIG['fichier_rpps'])
-    loader = OracleLoader(conn)
-    
+    loader = OracleLoaderInsertOnly(conn)
+
     logger.info("🚀 Démarrage extraction...")
-    
+
     try:
         for record in extractor.extract():
             loader.add_record(record)
             stats['lignes_lues'] = extractor.stats['lignes_lues']
-            
-            # Flush si nécessaire
+
             if loader.should_flush():
                 loader.flush(stats)
-                
-                # Afficher progression
-                elapsed = (datetime.now() - start_time).total_seconds()
-                vitesse = stats['lignes_lues'] / elapsed if elapsed > 0 else 0
-                
-                logger.info(
-                    f"  {stats['lignes_lues']:>10,} lignes | "
-                    f"{stats['activites']:>10,} activités | "
-                    f"{vitesse:>6,.0f} l/s"
-                )
-        
-        # Flush final
+
+                if stats['lignes_lues'] % CONFIG['progress_interval'] == 0:
+                    elapsed = (datetime.now() - start_time).total_seconds()
+                    vitesse = stats['lignes_lues'] / elapsed if elapsed > 0 else 0
+
+                    logger.info(
+                        f"  📊 {stats['lignes_lues']:>10,} lignes | "
+                        f"👤 {stats['professionnels']:>10,} pros | "
+                        f"📝 {stats['activites']:>10,} activités | "
+                        f"🚀 {vitesse:>6,.0f} l/s"
+                    )
+
         logger.info("🔄 Flush final...")
         loader.flush(stats)
-        
-        # Post-traitement : mode_exercice_principal
+
         logger.info("📊 Calcul mode exercice principal...")
         cursor.execute("""
             UPDATE professionnels p
@@ -683,8 +592,7 @@ def main():
         """)
         logger.info(f"✅ {cursor.rowcount:,} professionnels mis à jour")
         conn.commit()
-        
-        # Finaliser log
+
         duration = (datetime.now() - start_time).total_seconds()
         cursor.execute("""
             UPDATE import_logs SET statut='Terminé', date_fin=SYSDATE,
@@ -692,8 +600,15 @@ def main():
             duree_secondes=:4 WHERE id_log=:5
         """, [stats['lignes_lues'], stats['professionnels'], stats['erreurs'], int(duration), id_log])
         conn.commit()
-        
-        # Affichage final
+
+        # Vérification finale
+        cursor.execute("SELECT COUNT(*) FROM professionnels")
+        nb_pros_final = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM activites")
+        nb_act_final = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM structures")
+        nb_struct_final = cursor.fetchone()[0]
+
         print("\n" + "="*70)
         print("✅ IMPORT TERMINÉ AVEC SUCCÈS")
         print("="*70)
@@ -701,32 +616,28 @@ def main():
         print(f"🚀 Vitesse moyenne    : {stats['lignes_lues']/duration:,.0f} l/s")
         print("="*70)
         print(f"📊 Lignes lues        : {stats['lignes_lues']:>12,}")
-        print(f"👤 Professionnels     : {stats['professionnels']:>12,}")
-        print(f"   - Inactifs         : {extractor.stats['inactifs']:>12,}")
-        print(f"🏢 Structures         : {stats['structures']:>12,}")
-        print(f"📝 Activités          : {stats['activites']:>12,}")
-        if stats['activites_perdues'] > 0:
-            print(f"⚠️  Activités perdues  : {stats['activites_perdues']:>12,}")
+        print(f"👤 Professionnels     : {nb_pros_final:>12,}")
+        print(f"🏢 Structures         : {nb_struct_final:>12,}")
+        print(f"📝 Activités          : {nb_act_final:>12,}")
         print(f"🏠 Adresses           : {stats['adresses']:>12,}")
         print(f"📞 Contacts           : {stats['contacts']:>12,}")
-        print(f"❌ Erreurs            : {stats['erreurs']:>12,}")
         print("="*70)
-        
+
     except Exception as e:
         logger.error(f"❌ ERREUR FATALE : {e}")
         import traceback
         traceback.print_exc()
-        
+
         cursor.execute("""
             UPDATE import_logs SET statut='Erreur', date_fin=SYSDATE,
             message_log=:1 WHERE id_log=:2
         """, [str(e)[:500], id_log])
         conn.commit()
         return 1
-    
+
     finally:
         conn.close()
-    
+
     return 0
 
 if __name__ == '__main__':
